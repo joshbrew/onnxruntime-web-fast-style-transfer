@@ -1,5 +1,7 @@
 ## Jupyter wrapper of [fast-neural-style](https://github.com/pytorch/examples/tree/main/fast_neural_style) example with ONNX converting and a test web app
 
+![result](./testapp/app.png)
+
 ## Try it out
 [https://onnx-style-transfer.netlify.app/](https://onnx-style-transfer.netlify.app/)
 
@@ -89,4 +91,4 @@ Copy the `model.onnx` result you created to testapp/models. Follow the [README](
 
 We'll be working on optimizing it and seeing if we can get a 30-60fps result. 
 
-![result](./testapp/app.png)
+
