@@ -2,6 +2,7 @@
 
 ## Try it out
 [https://onnx-style-transfer.netlify.app/](https://onnx-style-transfer.netlify.app/)
+It works on 720p-ish PNGs, not sure why it's not working on larger resolutions yet but it should be dynamic.
 
 Original with explanation on usage:
 https://github.com/pytorch/examples/tree/main/fast_neural_style
