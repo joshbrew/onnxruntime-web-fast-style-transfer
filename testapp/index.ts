@@ -1,34 +1,43 @@
-import * as ort from 'onnxruntime-web'
-import * as wgpuort from 'onnxruntime-web/webgpu'
+// import * as ort from 'onnxruntime-web'
+// import * as wgpuort from 'onnxruntime-web/webgpu'
+
+import {threadop, WorkerHelper} from 'threadop'
 
 const modelName = 'model.onnx';
 
+import onnxworker from './onnx.worker'
+
 let session;
+let thread:WorkerHelper;
 
 const init = async () => {
     //https://github.com/microsoft/onnxruntime-inference-examples/tree/main/js/api-usage_session-options
-    try{ //WebGPU
-        session = await wgpuort.InferenceSession.create(location.origin+"/models/"+modelName, {
-            executionProviders: ['webgpu'] //'wasm' 'webgl' 'webgpu'
-        });
-        console.log("Created WebGPU ONNX session");
-    } catch(er) {
-        console.error("WebGPU ONNX Create Session error:", er);
-        try{ //WebGL fallback
-            session = await ort.InferenceSession.create(location.origin+"/models/"+modelName, {
-                executionProviders: ['webgl'] //'wasm' 'webgl' 'webgpu'
-            });
-            console.log("Created WebGL ONNX session");
-        } catch(er) {
-            console.error("WebGL ONNX Create Session error:", er);
-            try{ //CPU fallback
-                session = await ort.InferenceSession.create(location.origin+"/models/"+modelName, {
-                    executionProviders: ['wasm'] //'wasm' 'webgl' 'webgpu'
-                });
-                console.log("Created WASM ONNX session");
-            } catch(er) {console.error("WASM ONNX Create Session error:", er);}
-        }
-    }
+    // try{ //WebGPU
+    //     session = await wgpuort.InferenceSession.create(location.origin+"/models/"+modelName, {
+    //         executionProviders: ['webgpu'] //'wasm' 'webgl' 'webgpu'
+    //     });
+    //     console.log("Created WebGPU ONNX session");
+    // } catch(er) {
+    //     console.error("WebGPU ONNX Create Session error:", er);
+    //     try{ //WebGL fallback
+    //         session = await ort.InferenceSession.create(location.origin+"/models/"+modelName, {
+    //             executionProviders: ['webgl'] //'wasm' 'webgl' 'webgpu'
+    //         });
+    //         console.log("Created WebGL ONNX session");
+    //     } catch(er) {
+    //         console.error("WebGL ONNX Create Session error:", er);
+    //         try{ //CPU fallback
+    //             session = await ort.InferenceSession.create(location.origin+"/models/"+modelName, {
+    //                 executionProviders: ['wasm'] //'wasm' 'webgl' 'webgpu'
+    //             });
+    //             console.log("Created WASM ONNX session");
+    //         } catch(er) {console.error("WASM ONNX Create Session error:", er);}
+    //     }
+    // }
+
+    thread = await threadop(
+        onnxworker//'./dist/onnx.worker.js'
+    ) as WorkerHelper;
 }
 
 init();
@@ -50,35 +59,28 @@ canvas2.style.width = "50%";
 document.body.appendChild(canvas2);
 
 
+
 const testImage = async (
-    image_flattened, 
+    imageData:Uint8ClampedArray, 
     imWidth, 
     imHeight
 ) => {
 
-    const start = performance.now();
-    const tensor = new wgpuort.Tensor('float32', image_flattened, [1, 3, imHeight, imWidth]);
-    let result = await session.run({'input':tensor});
-
-    const duration = performance.now() - start;
-
-    console.log("ONNX Duration: ", duration+"ms", "or", (duration/1000).toFixed(2)+"s");
+    let result = await thread.run({image:imageData, width:imWidth, height:imHeight},[imageData.buffer]);
 
     //now render result
 
     canvas2.width = imWidth;
     canvas2.height = imHeight;
 
-    //render buffer
-    console.log(result);
 
-    const rgbaData = unflattenRGBImage(result.output.data, result.output.dims[3], result.output.dims[2]);
+    const rgbaData = unflattenRGBImage(result, imWidth, imHeight);
 
     // Create an ImageData object from the RGBA data
-    const imageData = new ImageData(rgbaData, imWidth, imHeight);
+    const image = new ImageData(rgbaData, imWidth, imHeight);
 
     // Render the ImageData object using the canvas context
-    ctx2.putImageData(imageData, 0, 0);
+    (ctx2 as any).putImageData(image, 0, 0);
 
 
 }
@@ -92,7 +94,7 @@ loadImage.addEventListener('click', () => {
     fileInput.type = 'file';
     fileInput.accept = 'image/*';
     fileInput.onchange = async (e) => {
-        const file = e.target.files[0];
+        const file = (e as any).target.files[0];
         if (file) {
             const image = new Image();
             image.onload = async () => {
@@ -100,17 +102,17 @@ loadImage.addEventListener('click', () => {
                 canvas.width = image.width;
                 canvas.height = image.height;
                 // Draw the image onto the canvas
-                ctx.drawImage(image, 0, 0);
+                (ctx as any).drawImage(image, 0, 0);
 
                 // Extract image data
-                const imageData = ctx.getImageData(0, 0, image.width, image.height);
+                const imageData = (ctx as CanvasRenderingContext2D).getImageData(0, 0, image.width, image.height);
 
                 // Flatten and normalize the image data
-                const flattenedData = convertRGBAToRGBPlanarNormalized(imageData.data, image.width, image.height);
+                //const flattenedData = convertRGBAToRGBPlanar(imageData.data, image.width, image.height);
                 //todo: speed this shit up, thread it, etc
 
                 // Pass the flattened data to the testImage function
-                await testImage(flattenedData, image.width, image.height);
+                await testImage(imageData.data, image.width, image.height);
             };
             image.src = URL.createObjectURL(file);
         }

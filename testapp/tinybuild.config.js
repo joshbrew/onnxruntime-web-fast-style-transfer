@@ -18,8 +18,8 @@ const config = {
         sourcemap: false,
         //plugins:[] //custom esbuild plugins? e.g. esbuild-sass-plugin for scss support
         //includeDefaultPlugins:true //true by default, includes the presets for the streaming imports, worker bundling, and auto npm install
-        //blobWorkers:true, //package workers as blobs or files? blobs are faster but inflate the main package size
-        //workerBundler:{minifyWhitespace:true} //bundler settings specific to the worker. e.g. apply platform:'node' when bundling node workers, 
+        blobWorkers:false, //package workers as blobs or files? blobs are faster but inflate the main package size
+        workerBundler:{format:'esm', minifyWhitespace:true} //bundler settings specific to the worker. e.g. apply platform:'node' when bundling node workers, 
         //globalThis:null //'mymodule'
         //globals:{'index.js':['Graph']}
         //init:{'index.js':function(bundle) { console.log('prepackaged bundle script!', bundle); }.toString(); }      
