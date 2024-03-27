@@ -42,7 +42,7 @@ def train(args):
     # Seed the random number generators for reproducibility.
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
-
+    torch.autograd.set_detect_anomaly(True)
     # Define transformations for the input images, including resizing, cropping, conversion to tensor, and scaling pixel values.
     transform = transforms.Compose([
         transforms.Resize(args.image_size),  # Resize images to a specified size.
