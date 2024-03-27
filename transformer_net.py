@@ -138,12 +138,13 @@ class ResidualBlock(torch.nn.Module):
         self.in1 = torch.nn.InstanceNorm2d(channels, affine=True)
         self.conv2 = ConvLayer(channels, channels, kernel_size=3, stride=1)
         self.in2 = torch.nn.InstanceNorm2d(channels, affine=True)
+        self.relu = torch.nn.ReLU()
 
     def forward(self, x):
         residual = x
-        out = torch.nn.functional.relu(self.in1(self.conv1(x)))
+        out = self.relu(self.in1(self.conv1(x)))
         out = self.in2(self.conv2(out))
-        return torch.nn.functional.relu(out + residual)
+        return self.relu(out + residual)
 
 class UpsampleConvLayer(torch.nn.Module):
     """
