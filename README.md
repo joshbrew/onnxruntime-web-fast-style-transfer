@@ -10,6 +10,15 @@ It works on 720p-ish PNGs, not sure why it's not working on larger resolutions y
 Original with explanation on usage:
 https://github.com/pytorch/examples/tree/main/fast_neural_style
 
+Additional tweaks based on work for real time Unity and Mobile development done here:
+
+https://blog.unity.com/engine-platform/real-time-style-transfer-in-unity-using-deep-neural-networks
+
+and here:
+
+https://medium.com/@jamesonthecrow/creating-a-17kb-style-transfer-model-with-layer-pruning-and-quantization-864d7cc53693
+
+
 ## Install dependencies
 
 pip install -r requirements.txt
@@ -52,6 +61,8 @@ Run `train.ipynb` and let it finish.
 ## Convert
 
 Run `convert.ipynb` to convert the outputted `model.pth` file for Pytorch to a `model.onnx` file for ONNX runtimes using the supplied parameters. We're working on fixing this for `onnxruntime-web` gpu operations. It works in python.
+
+You can also test the .pth file version first before converting, if you use model_name = "model.pth" in the Test.ipynb as shown below.
 
 ## Test
 

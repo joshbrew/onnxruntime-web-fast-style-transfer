@@ -3,7 +3,6 @@
 
 import {threadop, WorkerHelper} from 'threadop'
 
-const modelName = 'model.onnx';
 
 import onnxworker from './onnx.worker'
 

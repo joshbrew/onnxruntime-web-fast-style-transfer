@@ -7,14 +7,14 @@ import re
 import numpy as np
 import torch
 from torch.optim import Adam
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 from torchvision import datasets
 from torchvision import transforms
 
 import torch.onnx
 
 import utils
-from transformer_net import TransformerNet
+from transformer_net import TransformerNet, SmallTransformerNet, EfficientTransformerNet, SmallEfficientTransformerNet, SmallTransformerNet48, SmallEfficientTransformerNet48, MobileTransformerNet
 from vgg import Vgg16
 
 
@@ -57,7 +57,7 @@ def train(args):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size)
 
     # Initialize the transformer network and move it to the specified device.
-    transformer = TransformerNet().to(device)
+    transformer = MobileTransformerNet().to(device)
     # Define the optimizer for training the transformer network, specifying learning rate.
     optimizer = Adam(transformer.parameters(), args.lr)
     # Use mean squared error loss for training.
@@ -179,7 +179,7 @@ def stylize(args):
         output = stylize_onnx(content_image, args)
     else:
         with torch.no_grad():
-            style_model = TransformerNet()
+            style_model = SmallTransformerNet()
             state_dict = torch.load(args.model)
             # remove saved deprecated running_* keys in InstanceNorm from the checkpoint
             for k in list(state_dict.keys()):
@@ -221,6 +221,91 @@ def stylize_onnx(content_image, args):
     img_out_y = ort_outs[0]
 
     return torch.from_numpy(img_out_y)
+
+
+# this version trains loss between the high and low res images as a super resolution program instead of a style transfer program
+def train_superresolution(args):
+    if args.cuda:
+        device = torch.device("cuda")
+    else:
+        device = torch.device("cpu")
+
+    np.random.seed(args.seed)
+    torch.manual_seed(args.seed)
+    torch.autograd.set_detect_anomaly(True)
+
+    # Transform for low-resolution inputs
+    transform_lr = transforms.Compose([
+        transforms.Resize((args.image_size, args.image_size)),  # Resize images to low resolution.
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.mul(255))
+    ])
+
+    # Transform for high-resolution targets (no resizing)
+    transform_hr = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.mul(255))
+    ])
+
+    # Low-resolution dataset
+    train_dataset_lr = datasets.ImageFolder(args.dataset, transform_lr)
+    # High-resolution dataset
+    train_dataset_hr = datasets.ImageFolder(args.dataset, transform_hr)
+
+    # Assuming both loaders will return batches in the same order.
+    train_loader_lr = DataLoader(train_dataset_lr, batch_size=args.batch_size, shuffle=True)
+    train_loader_hr = DataLoader(train_dataset_hr, batch_size=args.batch_size, shuffle=True)
+
+    transformer = TransformerNet().to(device)
+    optimizer = Adam(transformer.parameters(), args.lr)
+    mse_loss = torch.nn.MSELoss()
+
+    for e in range(args.epochs):
+        transformer.train()
+        agg_content_loss = 0.
+        count = 0
+        # Zip loaders to iterate over low-res and high-res pairs
+        for (x_lr, _), (x_hr, _) in zip(train_loader_lr, train_loader_hr):
+            n_batch = len(x_lr)
+            count += n_batch
+            optimizer.zero_grad()
+
+            x_lr = x_lr.to(device)
+            y = transformer(x_lr)  # Forward pass with low-res input.
+
+            # Move high-res target to the same device as model output.
+            x_hr = x_hr.to(device)
+
+            # Compute content loss as MSE between the output and the high-resolution target.
+            content_loss = mse_loss(y, x_hr)
+
+            content_loss.backward()
+            optimizer.step()
+
+            agg_content_loss += content_loss.item()
+
+            if (batch_id + 1) % args.log_interval == 0:
+                mesg = "{}\tEpoch {}:\t[{}/{}]\tcontent: {:.6f}".format(
+                    time.ctime(), e + 1, count, len(train_dataset_lr), agg_content_loss / (batch_id + 1)
+                )
+                print(mesg)
+
+        # Save checkpoint models periodically.
+        if args.checkpoint_model_dir is not None and (e + 1) % args.checkpoint_interval == 0:
+            transformer.eval().cpu()
+            ckpt_model_filename = f"ckpt_epoch_{e + 1}.pth"
+            ckpt_model_path = os.path.join(args.checkpoint_model_dir, ckpt_model_filename)
+            torch.save(transformer.state_dict(), ckpt_model_path)
+            transformer.to(device).train()
+
+    transformer.eval().cpu()
+    save_model_filename = "super_res_model.pth"
+    save_model_path = os.path.join(args.save_model_dir, save_model_filename)
+    torch.save(transformer.state_dict(), save_model_path)
+
+    print("\nDone, trained model saved at", save_model_path)
+
+
 
 
 def main():
