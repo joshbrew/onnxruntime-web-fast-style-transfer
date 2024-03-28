@@ -204,9 +204,9 @@ class MobileTransformerNet(torch.nn.Module):
 
         # Upsampling Layers with efficient techniques
         self.deconv1 = ConvLayer(9, 9, kernel_size=3, stride=1, upsample=2)
-        self.in3 = torch.nn.InstanceNorm2d(9, affine=True)
-        self.deconv2 = ConvLayer(9, 9, kernel_size=9, stride=1, upsample=2)
         self.in4 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.deconv2 = ConvLayer(9, 9, kernel_size=9, stride=1, upsample=2)
+        self.in5 = torch.nn.InstanceNorm2d(9, affine=True)
         self.deconv3 = ConvLayer(9, 3, kernel_size=3, stride=1)
        
         # Non-linearities
@@ -225,8 +225,8 @@ class MobileTransformerNet(torch.nn.Module):
         y = self.resblocks(y)
         
         # Upsampling layers increase the spatial dimensions of the input.
-        y = self.relu(self.in3(self.deconv1(y)))
-        y = self.relu(self.in4(self.deconv2(y)))
+        y = self.relu(self.in4(self.deconv1(y)))
+        y = self.relu(self.in5(self.deconv2(y)))
         y = self.deconv3(y)  # Final convolution to produce the output.
         return y
    
@@ -295,7 +295,7 @@ class SmallEfficientTransformerNet(torch.nn.Module):
         self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(32) for _ in range(5)])
 
         # Upsampling Layers with efficient techniques
-        self.deconv1 = GroupedConvLayer(32, 16, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
+        self.deconv1 = OptimizedUpsampleConvLayer(32, 16, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
         self.in5 = torch.nn.InstanceNorm2d(16, affine=True)
         self.deconv2 = GroupedConvLayer(16, 3, kernel_size=9, stride=1)
        
@@ -332,8 +332,8 @@ class SmallEfficientTransformerNet48(torch.nn.Module):
         self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(48) for _ in range(5)])
 
         # Upsampling Layers with efficient techniques
-        self.deconv1 = GroupedConvLayer(48, 32, kernel_size=3, stride=1, upsample=2) #OptimizedUpsampleConvLayer # test next
-        self.in5 = torch.nn.InstanceNorm2d(32, affine=True)
+        self.deconv1 = GroupedConvLayer(48, 32, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
+        self.in3 = torch.nn.InstanceNorm2d(32, affine=True)
         self.deconv2 = GroupedConvLayer(32, 3, kernel_size=9, stride=1)
        
         # Non-linearities
@@ -350,17 +350,94 @@ class SmallEfficientTransformerNet48(torch.nn.Module):
         # Residual blocks do not change the dimensions of their input.
         y = self.resblocks(y)
         # Upsampling layers increase the spatial dimensions of the input.
-        y = self.relu(self.in5(self.deconv1(y)))
+        y = self.relu(self.in3(self.deconv1(y)))
         y = self.deconv2(y)  # Final convolution to produce the output.
         return y
     
+   
+# Architecture based on: https://medium.com/@jamesonthecrow/creating-a-17kb-style-transfer-model-with-layer-pruning-and-quantization-864d7cc53693
+class EfficientMobileTransformerNet(torch.nn.Module):
+    def __init__(self):
+        super(EfficientMobileTransformerNet, self).__init__()
+        # Initial convolution layers with less complexity and efficient design
+        self.conv1 = GroupedConvLayer(3, 9, kernel_size=9, stride=1, groups=3)
+        self.in1 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.conv2 = GroupedConvLayer(9, 9, kernel_size=3, stride=2, groups=3)
+        self.in2 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.conv3 = GroupedConvLayer(9, 9, kernel_size=3, stride=2, groups=3)
+        self.in3 = torch.nn.InstanceNorm2d(9, affine=True)
 
-class GroupedConvLayer(torch.nn.Module):
+        # A single, more efficient residual block
+        self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(9) for _ in range(3)])
+
+        # Upsampling Layers with efficient techniques
+        self.deconv1 = OptimizedUpsampleConvLayer(9, 9, kernel_size=3, stride=1, upsample=2) #upsample=4
+        self.in4 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.deconv2 = OptimizedUpsampleConvLayer(9, 9, kernel_size=9, stride=1, upsample=2)
+        self.in5 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.deconv3 = ConvLayer(9, 3, kernel_size=3, stride=1)
+       
+        # Non-linearities
+        # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
+        self.relu = torch.nn.ReLU()
+
+    def forward(self, X):
+        # Define the forward pass through the network.
+        
+        # Applies convolutional layers, residual blocks, and upsampling layers in sequence.
+        y = self.relu(self.in1(self.conv1(X)))
+        y = self.relu(self.in2(self.conv2(y)))
+        y = self.relu(self.in3(self.conv3(y)))
+        
+        # Residual blocks do not change the dimensions of their input.
+        y = self.resblocks(y)
+        
+        # Upsampling layers increase the spatial dimensions of the input.
+        y = self.relu(self.in4(self.deconv1(y)))
+        y = self.relu(self.in5(self.deconv2(y)))
+        y = self.deconv3(y)  # Final convolution to produce the output.
+        return y
+
+class DepthwiseSeparableConv(torch.nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1):
+        super(DepthwiseSeparableConv, self).__init__()
+        self.depthwise = torch.nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, groups=in_channels, padding=kernel_size//2)
+        self.pointwise = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
+    
+    def forward(self, x):
+        x = self.depthwise(x)
+        x = self.pointwise(x)
+        return x
+    
+class DepthwiseConvLayer(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride, upsample=None):
-        super(GroupedConvLayer, self).__init__()
+        super(DepthwiseConvLayer, self).__init__()
         self.upsample = upsample
 
-        groups = 1 if in_channels <= 32 else 4  # Example heuristic
+        # Reflection padding to maintain spatial dimensions without introducing border artifacts
+        self.padding = torch.nn.ReflectionPad2d(kernel_size // 2)
+
+        # Replace grouped and pointwise convolutions with a depthwise separable convolution
+        self.depthwise_separable_conv = DepthwiseSeparableConv(in_channels, out_channels, kernel_size, stride)
+        
+    def forward(self, x):
+        # Apply upsampling first if specified
+        if self.upsample:
+            x = torch.nn.functional.interpolate(x, scale_factor=self.upsample, mode='nearest', align_corners=None)
+        
+        # Apply reflection padding
+        x = self.padding(x)
+
+        # Apply the depthwise separable convolution
+        x = self.depthwise_separable_conv(x)
+        return x
+
+class GroupedConvLayer(torch.nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, upsample=None, groups=None):
+        super(GroupedConvLayer, self).__init__()
+        self.upsample = upsample
+ 
+        groups = groups or 2 if in_channels <= 32 else 4  # Example heuristic
 
         self.padding = torch.nn.ReflectionPad2d(kernel_size // 2)
         
@@ -383,17 +460,7 @@ class GroupedConvLayer(torch.nn.Module):
         x = self.pointwise_conv(x)
         return x
 
-class DepthwiseSeparableConv(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1):
-        super(DepthwiseSeparableConv, self).__init__()
-        self.depthwise = torch.nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, groups=in_channels, padding=kernel_size//2)
-        self.pointwise = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
-    
-    def forward(self, x):
-        x = self.depthwise(x)
-        x = self.pointwise(x)
-        return x
-    
+
 class OptimizedResidualBlock(torch.nn.Module):
     def __init__(self, channels):
         super(OptimizedResidualBlock, self).__init__()
@@ -424,15 +491,15 @@ class OptimizedUpsampleConvLayer(torch.nn.Module):
         if upsample:
             # Adjusted for pixel shuffle, including reflection padding before pixel shuffle convolution
             self.reflection_pad_pre_shuffle = torch.nn.ReflectionPad2d(padding)
-            self.conv2d_pre_shuffle = torch.nn.Conv2d(in_channels, out_channels * (upsample ** 2), kernel_size, stride, padding=0)
+            self.conv2d_pre_shuffle = torch.nn.Conv2d(in_channels, out_channels * (upsample ** 2), kernel_size, stride)
             self.pixel_shuffle = torch.nn.PixelShuffle(upsample)
             # Apply reflection padding before the post-shuffle convolution for refining features
             self.reflection_pad_post_shuffle = torch.nn.ReflectionPad2d(0)  # No padding needed if kernel_size=1 for post-shuffle conv
-            self.conv2d_post_shuffle = torch.nn.Conv2d(out_channels, out_channels, 1, stride=1, padding=0)
+            self.conv2d_post_shuffle = torch.nn.Conv2d(out_channels, out_channels, 1, stride=1)
         else:
             # Apply reflection padding before a regular convolution if no upsampling
             self.reflection_pad = torch.nn.ReflectionPad2d(padding)
-            self.conv2d = torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding=0)
+            self.conv2d = torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride)
 
     def forward(self, x):
         if self.upsample:

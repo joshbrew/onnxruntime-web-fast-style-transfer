@@ -1,13 +1,13 @@
 // import * as ort from 'onnxruntime-web'
 // import * as wgpuort from 'onnxruntime-web/webgpu'
 
-import {threadop, WorkerHelper} from 'threadop'
+import {threadop, WorkerHelper, WorkerPoolHelper} from 'threadop'
 
 
 import onnxworker from './onnx.worker'
 
 let session;
-let thread:WorkerHelper;
+let thread:WorkerPoolHelper;
 
 const init = async () => {
     //https://github.com/microsoft/onnxruntime-inference-examples/tree/main/js/api-usage_session-options
@@ -35,8 +35,11 @@ const init = async () => {
     // }
 
     thread = await threadop(
-        onnxworker//'./dist/onnx.worker.js'
-    ) as WorkerHelper;
+        onnxworker,//'./dist/onnx.worker.js'
+        {
+            pool:2
+        }
+    ) as WorkerPoolHelper;
 }
 
 init();
@@ -65,7 +68,16 @@ const testImage = async (
     imHeight
 ) => {
 
-    let result = await thread.run({image:imageData, width:imWidth, height:imHeight},[imageData.buffer]);
+    //const cpy = new Uint8ClampedArray(imageData);
+    let op = thread.run({image:imageData, width:imWidth, height:imHeight},[imageData.buffer]);
+    //let op2 = thread.run({image:cpy, width:imWidth, height:imHeight},[cpy.buffer]); //try a second pass at the same time
+
+    console.time('result1')
+    //console.time('result2')
+    let result = await op
+    console.timeEnd('result1')
+   // let result2 = await op2;
+    //console.timeEnd('result2')
 
     //now render result
 

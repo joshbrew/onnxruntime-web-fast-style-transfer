@@ -14,7 +14,11 @@ from torchvision import transforms
 import torch.onnx
 
 import utils
-from transformer_net import TransformerNet, SmallTransformerNet, EfficientTransformerNet, SmallEfficientTransformerNet, SmallTransformerNet48, SmallEfficientTransformerNet48, MobileTransformerNet
+from transformer_net import TransformerNet, SmallTransformerNet, \
+    EfficientTransformerNet, SmallEfficientTransformerNet, \
+    SmallTransformerNet48, SmallEfficientTransformerNet48, \
+    MobileTransformerNet, EfficientMobileTransformerNet
+
 from vgg import Vgg16
 
 
@@ -57,7 +61,7 @@ def train(args):
     train_loader = DataLoader(train_dataset, batch_size=args.batch_size)
 
     # Initialize the transformer network and move it to the specified device.
-    transformer = MobileTransformerNet().to(device)
+    transformer = EfficientMobileTransformerNet().to(device)
     # Define the optimizer for training the transformer network, specifying learning rate.
     optimizer = Adam(transformer.parameters(), args.lr)
     # Use mean squared error loss for training.
@@ -93,7 +97,7 @@ def train(args):
 
             x = x.to(device)  # Move input images to the specified device.
             y = transformer(x)  # Forward pass through the transformer network.
-
+            print(y)
             # Normalize the batch of images for both input and output.
             y = utils.normalize_batch(y)
             x = utils.normalize_batch(x)
