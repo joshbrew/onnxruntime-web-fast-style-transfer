@@ -286,9 +286,9 @@ class SmallEfficientTransformerNet(torch.nn.Module):
     def __init__(self):
         super(SmallEfficientTransformerNet, self).__init__()
         # Initial convolution layers with less complexity and efficient design
-        self.conv1 = GroupedConvLayer(3, 16, kernel_size=9, stride=1)
+        self.conv1 = DepthwiseConvLayer(3, 16, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(16, affine=True)
-        self.conv2 = GroupedConvLayer(16, 32, kernel_size=3, stride=2)
+        self.conv2 = DepthwiseConvLayer(16, 32, kernel_size=3, stride=2)
         self.in2 = torch.nn.InstanceNorm2d(32, affine=True)
 
         # A single, more efficient residual block
@@ -297,7 +297,7 @@ class SmallEfficientTransformerNet(torch.nn.Module):
         # Upsampling Layers with efficient techniques
         self.deconv1 = OptimizedUpsampleConvLayer(32, 16, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
         self.in5 = torch.nn.InstanceNorm2d(16, affine=True)
-        self.deconv2 = GroupedConvLayer(16, 3, kernel_size=9, stride=1)
+        self.deconv2 = DepthwiseConvLayer(16, 3, kernel_size=9, stride=1)
        
         # Non-linearities
         # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
@@ -323,18 +323,18 @@ class SmallEfficientTransformerNet48(torch.nn.Module):
     def __init__(self):
         super(SmallEfficientTransformerNet48, self).__init__()
         # Initial convolution layers with less complexity and efficient design
-        self.conv1 = GroupedConvLayer(3, 32, kernel_size=9, stride=1)
+        self.conv1 = DepthwiseConvLayer(3, 32, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)
-        self.conv2 = GroupedConvLayer(32, 48, kernel_size=3, stride=2)
+        self.conv2 = DepthwiseConvLayer(32, 48, kernel_size=3, stride=2)
         self.in2 = torch.nn.InstanceNorm2d(48, affine=True)
 
         # A single, more efficient residual block
         self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(48) for _ in range(5)])
 
         # Upsampling Layers with efficient techniques
-        self.deconv1 = GroupedConvLayer(48, 32, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
+        self.deconv1 = OptimizedUpsampleConvLayer(48, 32, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
         self.in3 = torch.nn.InstanceNorm2d(32, affine=True)
-        self.deconv2 = GroupedConvLayer(32, 3, kernel_size=9, stride=1)
+        self.deconv2 = DepthwiseConvLayer(32, 3, kernel_size=9, stride=1)
        
         # Non-linearities
         # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
@@ -401,6 +401,7 @@ class EfficientMobileTransformerNet(torch.nn.Module):
 class DepthwiseSeparableConv(torch.nn.Module):
     def __init__(self, in_channels, out_channels, kernel_size, stride=1,padding=None):
         super(DepthwiseSeparableConv, self).__init__()
+
         self.depthwise = torch.nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, groups=in_channels, padding=padding or kernel_size//2)
         self.pointwise = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
     
