@@ -360,11 +360,11 @@ class EfficientMobileTransformerNet(torch.nn.Module):
     def __init__(self):
         super(EfficientMobileTransformerNet, self).__init__()
         # Initial convolution layers with less complexity and efficient design
-        self.conv1 = GroupedConvLayer(3, 9, kernel_size=9, stride=1, groups=3)
+        self.conv1 = DepthwiseConvLayer(3, 9, kernel_size=9, stride=1, padding=0)
         self.in1 = torch.nn.InstanceNorm2d(9, affine=True)
-        self.conv2 = GroupedConvLayer(9, 9, kernel_size=3, stride=2, groups=3)
+        self.conv2 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=2, padding=0)
         self.in2 = torch.nn.InstanceNorm2d(9, affine=True)
-        self.conv3 = GroupedConvLayer(9, 9, kernel_size=3, stride=2, groups=3)
+        self.conv3 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=2, padding=0)
         self.in3 = torch.nn.InstanceNorm2d(9, affine=True)
 
         # A single, more efficient residual block
@@ -375,7 +375,7 @@ class EfficientMobileTransformerNet(torch.nn.Module):
         self.in4 = torch.nn.InstanceNorm2d(9, affine=True)
         self.deconv2 = OptimizedUpsampleConvLayer(9, 9, kernel_size=9, stride=1, upsample=2)
         self.in5 = torch.nn.InstanceNorm2d(9, affine=True)
-        self.deconv3 = ConvLayer(9, 3, kernel_size=3, stride=1)
+        self.deconv3 = DepthwiseConvLayer(9, 3, kernel_size=3, stride=1, padding=0)
        
         # Non-linearities
         # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
@@ -399,9 +399,9 @@ class EfficientMobileTransformerNet(torch.nn.Module):
         return y
 
 class DepthwiseSeparableConv(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1,padding=None):
         super(DepthwiseSeparableConv, self).__init__()
-        self.depthwise = torch.nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, groups=in_channels, padding=kernel_size//2)
+        self.depthwise = torch.nn.Conv2d(in_channels, in_channels, kernel_size=kernel_size, stride=stride, groups=in_channels, padding=padding or kernel_size//2)
         self.pointwise = torch.nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
     
     def forward(self, x):
@@ -410,25 +410,30 @@ class DepthwiseSeparableConv(torch.nn.Module):
         return x
     
 class DepthwiseConvLayer(torch.nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size, stride, upsample=None):
+    def __init__(self, in_channels, out_channels, kernel_size, stride, upsample=None, padding=None):
         super(DepthwiseConvLayer, self).__init__()
         self.upsample = upsample
 
-        # Reflection padding to maintain spatial dimensions without introducing border artifacts
-        self.padding = torch.nn.ReflectionPad2d(kernel_size // 2)
-
-        # Replace grouped and pointwise convolutions with a depthwise separable convolution
-        self.depthwise_separable_conv = DepthwiseSeparableConv(in_channels, out_channels, kernel_size, stride)
+        if padding == None:
+            if(int(in_channels/3) == in_channels/3):
+                padding = (kernel_size - 1) // 2 
+            else:
+                padding = kernel_size // 2
         
+        self.padding = torch.nn.ReflectionPad2d(padding)
+
+        # Use a depthwise separable convolution to process input
+        self.depthwise_separable_conv = DepthwiseSeparableConv(in_channels, out_channels, kernel_size, stride, padding=0)  # No additional padding applied here, using reflection padding instead.
+
     def forward(self, x):
         # Apply upsampling first if specified
         if self.upsample:
-            x = torch.nn.functional.interpolate(x, scale_factor=self.upsample, mode='nearest', align_corners=None)
+            x = torch.nn.functional.interpolate(x, scale_factor=self.upsample, mode='nearest', align_corners=False)
         
-        # Apply reflection padding
+        # Apply reflection padding to maintain spatial dimensions without introducing border artifacts
         x = self.padding(x)
 
-        # Apply the depthwise separable convolution
+        # Perform the depthwise separable convolution
         x = self.depthwise_separable_conv(x)
         return x
 
@@ -437,7 +442,11 @@ class GroupedConvLayer(torch.nn.Module):
         super(GroupedConvLayer, self).__init__()
         self.upsample = upsample
  
-        groups = groups or 2 if in_channels <= 32 else 4  # Example heuristic
+        if groups == None:
+            if(int(in_channels/3) == in_channels/3):
+                groups = 3
+            else:
+                groups = 2 if in_channels <= 32 else 4
 
         self.padding = torch.nn.ReflectionPad2d(kernel_size // 2)
         
@@ -482,35 +491,35 @@ class OptimizedUpsampleConvLayer(torch.nn.Module):
     combined with a convolutional layer to refine the upsampled output. Reflection padding
     is applied before convolution to maintain spatial dimensions without introducing border artifacts.
     """
-    def __init__(self, in_channels, out_channels, kernel_size, stride, upsample=None):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, upsample=None):
         super(OptimizedUpsampleConvLayer, self).__init__()
         self.upsample = upsample
-        # Calculate padding based on the kernel size for reflection padding
-        padding = kernel_size // 2
-        
+
         if upsample:
-            # Adjusted for pixel shuffle, including reflection padding before pixel shuffle convolution
-            self.reflection_pad_pre_shuffle = torch.nn.ReflectionPad2d(padding)
-            self.conv2d_pre_shuffle = torch.nn.Conv2d(in_channels, out_channels * (upsample ** 2), kernel_size, stride)
+            # Correct calculation for the channels needed for pixel shuffle
+            shuffle_in_channels = in_channels * (upsample ** 2)
+
+            # Expanding channels to prepare for pixel shuffle
+            self.expand_conv = torch.nn.Conv2d(in_channels, shuffle_in_channels, kernel_size=1, stride=1)
+
+            # Pixel shuffle for actual upsampling
             self.pixel_shuffle = torch.nn.PixelShuffle(upsample)
-            # Apply reflection padding before the post-shuffle convolution for refining features
-            self.reflection_pad_post_shuffle = torch.nn.ReflectionPad2d(0)  # No padding needed if kernel_size=1 for post-shuffle conv
-            self.conv2d_post_shuffle = torch.nn.Conv2d(out_channels, out_channels, 1, stride=1)
+
+            # Ensuring the kernel size and padding are set to maintain dimensions after pixel shuffle
+            # Note: If using a kernel size that doesn't maintain dimensions by default, adjust padding accordingly.
+            self.refinement_conv = DepthwiseSeparableConv(in_channels, out_channels, kernel_size, stride)
         else:
-            # Apply reflection padding before a regular convolution if no upsampling
-            self.reflection_pad = torch.nn.ReflectionPad2d(padding)
-            self.conv2d = torch.nn.Conv2d(in_channels, out_channels, kernel_size, stride)
+            # Direct depthwise separable convolution without upsampling
+            self.refinement_conv = DepthwiseSeparableConv(in_channels, out_channels, kernel_size, stride)
 
     def forward(self, x):
         if self.upsample:
-            x = self.reflection_pad_pre_shuffle(x)
-            x = self.conv2d_pre_shuffle(x)
+            x = self.expand_conv(x)
             x = self.pixel_shuffle(x)
-            x = self.reflection_pad_post_shuffle(x)  # Note: This might be redundant if kernel_size=1 and padding=0
-            x = self.conv2d_post_shuffle(x)
+            x = self.refinement_conv(x)
         else:
-            x = self.reflection_pad(x)
-            x = self.conv2d(x)
+            x = self.refinement_conv(x)
+
         return x
 
 
