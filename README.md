@@ -58,6 +58,10 @@ If using Mac, see neural_style.py for appropriate commands, uncomment the lines 
 
 Run `train.ipynb` and let it finish. 
 
+For example we used a still from the movie Mind Game directed by Masaaki Yuasa, which you should go watch right now.
+
+![style](./test/mindgame.jpg)
+
 ## Convert
 
 Run `convert.ipynb` to convert the outputted `model.pth` file for Pytorch to a `model.onnx` file for ONNX runtimes using the supplied parameters. We're working on fixing this for `onnxruntime-web` gpu operations. It works in python.
