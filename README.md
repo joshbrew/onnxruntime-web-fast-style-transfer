@@ -96,6 +96,20 @@ In:
 Out:
 ![out](./test/baseoutput.png)
 
+Nice result but this was on the 128 channel model, which only ran around 3fps on our RTX3070 at 720p on the WebGPU ONNX backend via browser. That's a 7Mb model. We tweaked it and optimized the layer computations and got it down to 41kb without quantizing properly, so we should be able to get much more out of it.
+
+Note the style weight on the smaller model is more finicky so we're tuning it still. You want it pretty high on the large model, we used 1e11, while somewhere between 1e10 and 5e10 is the right setting for the small model. We'll get it!
+
+Too low, does a good reconstruction still:
+![a](./test/mobilenet_lowstyle.webp)
+
+Too high, can't see the scene:
+![a](./test/mobilenet_highstyle.png)
+
+The border distortions are probably because of our padding not being totally correct.
+
+We were able to get 16-20fps at 720p on our mobile version of the model. We're still looking for ways to advance it.
+
 ## Run the webapp
 
 Copy the `model.onnx` result you created to testapp/models. Follow the [README](./testapp/README.md) in that subfolder to run the sample. 
