@@ -416,7 +416,8 @@ class DepthwiseConvLayer(torch.nn.Module):
         self.upsample = upsample
 
         if padding == None:
-            if(int(in_channels/3) == in_channels/3):
+            # adjust padding for odd channel counts 
+            if(int(in_channels/2) != in_channels/2 and int(in_channels/3) == in_channels/3):
                 padding = (kernel_size - 1) // 2 
             else:
                 padding = kernel_size // 2
