@@ -94,7 +94,7 @@ In:
 ![in](./test/capture.png)
 
 Out:
-![out](./test/output.png)
+![out](./test/baseoutput.png)
 
 ## Run the webapp
 
