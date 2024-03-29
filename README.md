@@ -172,3 +172,8 @@ class EfficientMobileTransformerNet(torch.nn.Module):
         return y
 
 ```
+
+
+## HELP
+
+I'm sharing all results free and making it instructional via these ipynb files as ONNX etc is a bit esoteric but also the cutting edge right now for distributing these kinds of programs. We can make universal shader systems this way, halp me fix bugs and whittle this down to real time capable at least on desktop, probably on mobile too. 
