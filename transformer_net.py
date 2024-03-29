@@ -240,11 +240,11 @@ class EfficientTransformerNet(torch.nn.Module):
         # It applies padding before convolution to maintain the image size.
         # These layers progressively increase the number of channels while reducing image size,
         # preparing the input for the residual blocks.
-        self.conv1 = DepthwiseConvLayer(3, 32, kernel_size=9, stride=1, padding=0)
+        self.conv1 = DepthwiseConvLayer(3, 32, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)  # Normalizes the output of conv1 to stabilize training.
-        self.conv2 = DepthwiseConvLayer(32, 64, kernel_size=3, stride=2, padding=0)
+        self.conv2 = DepthwiseConvLayer(32, 64, kernel_size=3, stride=2)
         self.in2 = torch.nn.InstanceNorm2d(64, affine=True)  # Each InstanceNorm layer normalizes across spatial dimensions.
-        self.conv3 = DepthwiseConvLayer(64, 128, kernel_size=3, stride=2, padding=0)
+        self.conv3 = DepthwiseConvLayer(64, 128, kernel_size=3, stride=2)
         self.in3 = torch.nn.InstanceNorm2d(128, affine=True)
 
         # Residual layers
@@ -256,11 +256,11 @@ class EfficientTransformerNet(torch.nn.Module):
         # Upsampling Layers
         # These layers increase the size of the image back to its original dimensions,
         # while reducing the number of channels back to 3 (RGB).
-        self.deconv1 = DepthwiseConvLayer(128, 64, kernel_size=3, stride=1, upsample=2, padding=0)
+        self.deconv1 = DepthwiseConvLayer(128, 64, kernel_size=3, stride=1, upsample=2)
         self.in4 = torch.nn.InstanceNorm2d(64, affine=True)
-        self.deconv2 = DepthwiseConvLayer(64, 32, kernel_size=3, stride=1, upsample=2, padding=0)
+        self.deconv2 = DepthwiseConvLayer(64, 32, kernel_size=3, stride=1, upsample=2)
         self.in5 = torch.nn.InstanceNorm2d(32, affine=True)
-        self.deconv3 = DepthwiseConvLayer(32, 3, kernel_size=9, stride=1, padding=0)
+        self.deconv3 = DepthwiseConvLayer(32, 3, kernel_size=9, stride=1)
 
         # Non-linearities
         # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
@@ -286,18 +286,18 @@ class SmallEfficientTransformerNet(torch.nn.Module):
     def __init__(self):
         super(SmallEfficientTransformerNet, self).__init__()
         # Initial convolution layers with less complexity and efficient design
-        self.conv1 = DepthwiseConvLayer(3, 16, kernel_size=9, stride=1, padding=0)
+        self.conv1 = DepthwiseConvLayer(3, 16, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(16, affine=True)
-        self.conv2 = DepthwiseConvLayer(16, 32, kernel_size=3, stride=2, padding=0)
+        self.conv2 = DepthwiseConvLayer(16, 32, kernel_size=3, stride=2)
         self.in2 = torch.nn.InstanceNorm2d(32, affine=True)
 
         # A single, more efficient residual block
         self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(32) for _ in range(5)])
 
         # Upsampling Layers with efficient techniques
-        self.deconv1 = DepthwiseConvLayer(32, 16, kernel_size=3, stride=1, upsample=4, padding=0) #OptimizedUpsampleConvLayer # test next
+        self.deconv1 = DepthwiseConvLayer(32, 16, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
         self.in5 = torch.nn.InstanceNorm2d(16, affine=True)
-        self.deconv2 = DepthwiseConvLayer(16, 3, kernel_size=9, stride=1, padding=0)
+        self.deconv2 = DepthwiseConvLayer(16, 3, kernel_size=9, stride=1)
        
         # Non-linearities
         # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
@@ -323,18 +323,18 @@ class SmallEfficientTransformerNet48(torch.nn.Module):
     def __init__(self):
         super(SmallEfficientTransformerNet48, self).__init__()
         # Initial convolution layers with less complexity and efficient design
-        self.conv1 = DepthwiseConvLayer(3, 32, kernel_size=9, stride=1, padding=0)
+        self.conv1 = DepthwiseConvLayer(3, 32, kernel_size=9, stride=1)
         self.in1 = torch.nn.InstanceNorm2d(32, affine=True)
-        self.conv2 = DepthwiseConvLayer(32, 48, kernel_size=3, stride=2, padding=0)
+        self.conv2 = DepthwiseConvLayer(32, 48, kernel_size=3, stride=2)
         self.in2 = torch.nn.InstanceNorm2d(48, affine=True)
 
         # A single, more efficient residual block
         self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(48) for _ in range(5)])
 
         # Upsampling Layers with efficient techniques
-        self.deconv1 = DepthwiseConvLayer(48, 32, kernel_size=3, stride=1, upsample=4, padding=0) #OptimizedUpsampleConvLayer # test next
+        self.deconv1 = DepthwiseConvLayer(48, 32, kernel_size=3, stride=1, upsample=4) #OptimizedUpsampleConvLayer # test next
         self.in3 = torch.nn.InstanceNorm2d(32, affine=True)
-        self.deconv2 = DepthwiseConvLayer(32, 3, kernel_size=9, stride=1, padding=0)
+        self.deconv2 = DepthwiseConvLayer(32, 3, kernel_size=9, stride=1)
        
         # Non-linearities
         # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
@@ -360,7 +360,7 @@ class EfficientMobileTransformerNet(torch.nn.Module):
     def __init__(self):
         super(EfficientMobileTransformerNet, self).__init__()
         # Initial convolution layers with less complexity and efficient design
-        self.conv1 = DepthwiseConvLayer(3, 9, kernel_size=9, stride=1, padding=0)
+        self.conv1 = DepthwiseConvLayer(3, 9, kernel_size=9, stride=1, padding=0) #padding=0 is a bug because we need reflection padding to work
         self.in1 = torch.nn.InstanceNorm2d(9, affine=True)
         self.conv2 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=2, padding=0)
         self.in2 = torch.nn.InstanceNorm2d(9, affine=True)
@@ -370,8 +370,8 @@ class EfficientMobileTransformerNet(torch.nn.Module):
         # A single, more efficient residual block
         self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(9) for _ in range(3)])
 
-        # Upsampling Layers with efficient techniques
-        self.deconv1 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=1, upsample=2, padding=0) #upsample=4
+        # Upsampling Layers with efficient techniques 
+        self.deconv1 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=1, upsample=2, padding=0) #upsample=4 
         self.in4 = torch.nn.InstanceNorm2d(9, affine=True)
         self.deconv2 = DepthwiseConvLayer(9, 9, kernel_size=9, stride=1, upsample=2, padding=0) #OptimizedUpsampleConvLayer
         self.in5 = torch.nn.InstanceNorm2d(9, affine=True)
@@ -415,17 +415,12 @@ class DepthwiseConvLayer(torch.nn.Module):
         super(DepthwiseConvLayer, self).__init__()
         self.upsample = upsample
 
-        if padding == None:
-            # adjust padding for odd channel counts 
-            if(int(in_channels/2) != in_channels/2 and int(in_channels/3) == in_channels/3):
-                padding = (kernel_size - 1) // 2 
-            else:
-                padding = kernel_size // 2
+        padding = padding if (padding != None) else (kernel_size // 2)
         
         self.padding = torch.nn.ReflectionPad2d(padding)
 
         # Use a depthwise separable convolution to process input
-        self.depthwise_separable_conv = DepthwiseSeparableConv(in_channels, out_channels, kernel_size, stride, padding=0)  # No additional padding applied here, using reflection padding instead.
+        self.depthwise_separable_conv = DepthwiseSeparableConv(in_channels, out_channels, kernel_size, stride)  # No additional padding applied here, using reflection padding instead.
 
     def forward(self, x):
         # Apply upsampling first if specified
