@@ -103,3 +103,53 @@ Copy the `model.onnx` result you created to testapp/models. Follow the [README](
 We'll be working on optimizing it and seeing if we can get a 30-60fps result. 
 
 
+
+## Our Model of Choice (wip)
+
+We switched all convolutions to Depthwise Separable convolution which should be about 100x less computations, and lowered the number of filters to 9 based on recommendations found online. The resulting model without proper quanization is 41kb, and runs at 16-20fps on the WebGPU ONNX distribution. You can find the .pth or .onnx files in the test/ folder
+
+```py   
+# Architecture based on: https://medium.com/@jamesonthecrow/creating-a-17kb-style-transfer-model-with-layer-pruning-and-quantization-864d7cc53693
+class EfficientMobileTransformerNet(torch.nn.Module):
+    def __init__(self):
+        super(EfficientMobileTransformerNet, self).__init__()
+        # Initial convolution layers with less complexity and efficient design
+        self.conv1 = DepthwiseConvLayer(3, 9, kernel_size=9, stride=1, padding=0)
+        self.in1 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.conv2 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=2, padding=0)
+        self.in2 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.conv3 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=2, padding=0)
+        self.in3 = torch.nn.InstanceNorm2d(9, affine=True)
+
+        # A single, more efficient residual block
+        self.resblocks = torch.nn.Sequential(*[OptimizedResidualBlock(9) for _ in range(3)])
+
+        # Upsampling Layers with efficient techniques
+        self.deconv1 = DepthwiseConvLayer(9, 9, kernel_size=3, stride=1, upsample=2, padding=0) #upsample=4
+        self.in4 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.deconv2 = DepthwiseConvLayer(9, 9, kernel_size=9, stride=1, upsample=2, padding=0) #OptimizedUpsampleConvLayer
+        self.in5 = torch.nn.InstanceNorm2d(9, affine=True)
+        self.deconv3 = DepthwiseConvLayer(9, 3, kernel_size=3, stride=1, padding=0)
+       
+        # Non-linearities
+        # ReLU (Rectified Linear Unit) introduces non-linearity, helping the network learn complex patterns.
+        self.relu = torch.nn.ReLU()
+
+    def forward(self, X):
+        # Define the forward pass through the network.
+        
+        # Applies convolutional layers, residual blocks, and upsampling layers in sequence.
+        y = self.relu(self.in1(self.conv1(X)))
+        y = self.relu(self.in2(self.conv2(y)))
+        y = self.relu(self.in3(self.conv3(y)))
+        
+        # Residual blocks do not change the dimensions of their input.
+        y = self.resblocks(y)
+        
+        # Upsampling layers increase the spatial dimensions of the input.
+        y = self.relu(self.in4(self.deconv1(y)))
+        y = self.relu(self.in5(self.deconv2(y)))
+        y = self.deconv3(y)  # Final convolution to produce the output.
+        return y
+
+```
