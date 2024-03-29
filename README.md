@@ -106,7 +106,7 @@ We'll be working on optimizing it and seeing if we can get a 30-60fps result.
 
 ## Our Model of Choice (wip)
 
-We switched all convolutions to Depthwise Separable convolution which should be about 100x less computations, and lowered the number of filters to 9 based on recommendations found online. The resulting model without proper quanization is 41kb, and runs at 16-20fps at 720p on an RTX3070on the WebGPU ONNX distribution. You can find the .pth or .onnx files in the test/ folder. This should definitely run faster than it does on our hardware.
+We switched all convolutions to Depthwise Separable convolution which should be about 100x less computations, and lowered the number of filters to 9 based on recommendations found online. The resulting model without proper quantization is 41kb, and runs at 16-20fps at 720p on an RTX3070 on the WebGPU ONNX distribution. You can find the .pth or .onnx files in the test/ folder. This should definitely run faster than it does on our hardware.
 
 ```py   
 # Architecture based on: https://medium.com/@jamesonthecrow/creating-a-17kb-style-transfer-model-with-layer-pruning-and-quantization-864d7cc53693
